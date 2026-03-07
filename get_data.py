@@ -17,6 +17,6 @@ assets = client.get_all_assets(search_params)
 all_tickers = [asset.symbol for asset in assets if asset.tradable]
 
 # Get batched data
-db = DataBatcher(all_tickers, batch_size=50,output_dir='data')
+db = DataBatcher(all_tickers, batch_size=50, output_dir='data')
 db.batch_tickers(time_frame='day', start_date=datetime(2023,1,1))
 db.merge_batched_data() 
