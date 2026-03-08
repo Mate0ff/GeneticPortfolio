@@ -33,8 +33,11 @@ class DataBatcher():
     def batch_tickers(self, 
                       time_frame: str, 
                       start_date: datetime, 
-                      end_date: None | datetime) -> None:
+                      end_date = None) -> None:
         
+        if not os.path.isdir(f'{self._output_dir}/'):
+            os.mkdir(f'{self._output_dir}/')
+
         print("\n===== STARTED BATCHING TICKERS =====")
         
         checkpoint_dfs = []
@@ -84,16 +87,18 @@ class DataBatcher():
         
         print("\n===== STARTED MERGING DATA =====")
         try:
-            output_name = '/merged_data.parquet'
+            output_name = f'{self._output_dir}/merged_data.parquet'
             file_list = [ f for f in os.listdir(self._output_dir) if f.endswith('.parquet')]
-
             print(f" {len(file_list)} files to merge!")
-            df_final = pd.concat([pd.read_parquet(f) for f in file_list])
+            df_final = pd.concat([pd.read_parquet(f'{self._output_dir}/{f}') for f in file_list])
             df_final.drop_duplicates(inplace=True)
-
+            df_final.reset_index(inplace=True)
+            df_final.drop('index', axis=1, inplace=True)
             df_final.to_parquet(output_name, compression='snappy')
-            print(f" Merging finished, you can see the data here: {self._output_dir}{output_name}")
+            print(f" Merging finished, you can see the data here: {output_name}")
 
         except Exception as e:
             print(e)
         
+
+
