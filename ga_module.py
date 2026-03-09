@@ -6,12 +6,14 @@ import random
 
 class GeneticPortfolio():
 
-    def __init__(self, data):
+    def __init__(self, data, pop_size, n_min = 2, n_max=10):
         self._tickers = self.__extract_tickers(data) 
         self._data = self.__calculate_returns(data)
         self._cov_matrix = self.__get_cov_cache(self._data)
         self._symbol_means = self.__calculate_mean_returns(self._data)
-        self._population_size = None
+        self._population_size = pop_size
+        self._n_min = n_min
+        self._n_max = n_max
 
     @staticmethod
     def __extract_tickers(data):
@@ -25,7 +27,12 @@ class GeneticPortfolio():
     
     @staticmethod
     def __calculate_cov_matrix(data):
+        '''
+        Simple filling logic in case the days are not the same for some symbols.
+        '''
         returns_matrix = data.pivot(index='timestamp', columns='symbol', values='returns')
+        returns_matrix = returns_matrix.ffill()
+        returns_matrix = returns_matrix.fillna(0)
         return returns_matrix.cov()
 
     def __get_cov_cache(self, data):
@@ -56,10 +63,9 @@ class GeneticPortfolio():
         normalized_weights = weights / weights.sum()
         return dict(zip(current_tickers,normalized_weights))
 
-    def get_population(self, pop_size = 400) -> list:
-        self._population_size = pop_size
+    def get_population(self) -> list:
         population = [
-                    self.__get_portfolio(random.randint(3,20)) 
+                    self.__get_portfolio(random.randint(self._n_min,self._n_max)) 
                     for _ in range(self._population_size)
                     ]
 
@@ -84,7 +90,6 @@ class GeneticPortfolio():
         return np.array(fitnes)
 
     def get_next_gen(self,generation,fitnes):
-        
         # top 10 go to next gen
         best_portfolios_idx = np.argpartition(fitnes,-10)[-10:]
         portfolios = [generation[i] for i in best_portfolios_idx] 
@@ -104,7 +109,7 @@ class GeneticPortfolio():
     def __cros_breed(self, p1, p2):
         choices = list(set(p1.keys()) | set(p2.keys()))
         avg_size = (len(p1) + len(p2)) / 2
-        child_size = int(np.clip(round(avg_size) + + random.randint(-1, 1), 3, 20))
+        child_size = int(np.clip(round(avg_size) + + random.randint(-1, 1),self._n_min,self._n_max))
         child_size = min(child_size, len(choices))
 
         def create_one_child():
@@ -180,4 +185,20 @@ class GeneticPortfolio():
 
 
     def run_ga_optimization(self, n):
-        pass
+
+        print("\n===== STARTED GA =====")
+        prev_gen = self.get_population()
+        prev_gen_score = self.evaluate_portfolios(prev_gen)
+        for i in range(n):
+            print(f"Generation {i+1} / {n}")
+            next_gen = self.get_next_gen(prev_gen, prev_gen_score)
+            next_gen_score = self.evaluate_portfolios(next_gen)
+
+            prev_gen = next_gen
+            prev_gen_score = next_gen_score
+
+        results = list(zip(prev_gen, prev_gen_score))
+        results.sort(key=lambda x: x[1], reverse=True)
+
+        return results  
+
