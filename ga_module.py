@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-
+import os
 import random
 
 
@@ -9,7 +9,7 @@ class GeneticPortfolio():
     def __init__(self, data):
         self._tickers = self.__extract_tickers(data) 
         self._data = self.__calculate_returns(data)
-        self._cov_matrix = self.__calculate_cov_matrix(self._data)
+        self._cov_matrix = self.__get_cov_cache(self._data)
         self.__symbol_means = self.__calculate_mean_returns(self._data)
         self._population_size = None
 
@@ -27,6 +27,17 @@ class GeneticPortfolio():
     def __calculate_cov_matrix(data):
         returns_matrix = data.pivot(index='timestamp', columns='symbol', values='returns')
         return returns_matrix.cov()
+
+    def __get_cov_cache(self, data):
+        cache_path = 'cov_matrix.parquet'
+
+        if os.path.exist(cache_path):
+            return pd.read_parquet(cache_path)
+        else: 
+            cov_matrix = self.__calculate_cov_matrix(data)
+            cov_matrix.to_parquet(cache_path, engine='pyarrow', compression='snappy')
+            return cov_matrix
+
 
     @staticmethod
     def __calculate_mean_returns(data):
@@ -75,7 +86,6 @@ class GeneticPortfolio():
 
     def get_next_gen(self,generation,fitnes):
         
-
         # top 10 go to next gen
         best_portfolios_idx = np.argpartition(fitnes,-10)[-10:]
         portfolios = [generation[i] for i in best_portfolios_idx] 
@@ -85,7 +95,12 @@ class GeneticPortfolio():
             p1, p2 = self.__get_parents(generation, fitnes)
             c1, c2 = self.__cros_breed(p1, p2)
 
-        return 
+            c1 = self.__mutate(c1, chance = 0.02)
+            c2 = self.__mutate(c2, chance = 0.02)
+            portfolios.append(c1)
+            portfolios.append(c2)
+
+        return portfolios 
 
     def __cros_breed(self, p1, p2):
         choices = list(set(p1.keys()) | set(p2.keys()))
@@ -118,9 +133,38 @@ class GeneticPortfolio():
 
         return c1, c2
     
-    def __mutate(self, c1, c2,chance = 0.02):
-        pass
+    def __mutate(self,child,chance = 0.02):
 
+        mutate = ( random.random() ) <= chance
+        if mutate:
+            mutation = random.randint(0,1)
+                # random ticker is replaced
+            if mutation == 0:
+                replace = np.random.choice(list(child.keys()))
+                rand_ticker = np.random.choice(self._tickers)
+
+                while rand_ticker in child:
+                    rand_ticker = np.random.choice(self._tickers)
+                
+                child[rand_ticker] = child.pop(replace)
+            elif mutation == 1:
+                # random weight is altered
+                t = list(child.keys())
+                w = np.array(list(child.values()))
+
+                index = random.randrange(len(w))
+                w[index] = np.clip(w[index] + random.uniform(-0.1, 0.1), 0.01, 1.0)
+
+                total_w = np.sum(w)
+                if total_w > 0:
+                    w /= total_w
+                else:
+                    w = np.ones(len(w)) / len(w)
+
+                child.update(zip(t, w))
+
+        return child
+    
     def __get_parents(self, generation, fitnes, n_turnament=10):
         parents = []
         
@@ -136,5 +180,6 @@ class GeneticPortfolio():
         return generation[parents[0]], generation[parents[1]]
 
 
-    
+    def run_ga_optimization(self):
+        pass
 

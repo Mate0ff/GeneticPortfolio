@@ -70,7 +70,7 @@ class DataBatcher():
 
             if (i + 1) % 10 == 0:
                 temp_df = pd.concat(checkpoint_dfs)
-                temp_df.to_parquet(f'{self._output_dir}/stocks_checkpoint_{i+1}.parquet')
+                temp_df.to_parquet(f'{self._output_dir}/stocks_checkpoint_{i+1}.parquet', engine='pyarrow', compression='snappy')
                 print(f"!!! Checkpoint saved at batch {i+1}")
             
                 del temp_df
