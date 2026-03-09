@@ -10,7 +10,7 @@ class GeneticPortfolio():
         self._tickers = self.__extract_tickers(data) 
         self._data = self.__calculate_returns(data)
         self._cov_matrix = self.__get_cov_cache(self._data)
-        self.__symbol_means = self.__calculate_mean_returns(self._data)
+        self._symbol_means = self.__calculate_mean_returns(self._data)
         self._population_size = None
 
     @staticmethod
@@ -31,13 +31,12 @@ class GeneticPortfolio():
     def __get_cov_cache(self, data):
         cache_path = 'cov_matrix.parquet'
 
-        if os.path.exist(cache_path):
+        if os.path.exists(cache_path):
             return pd.read_parquet(cache_path)
         else: 
             cov_matrix = self.__calculate_cov_matrix(data)
             cov_matrix.to_parquet(cache_path, engine='pyarrow', compression='snappy')
             return cov_matrix
-
 
     @staticmethod
     def __calculate_mean_returns(data):
@@ -74,7 +73,7 @@ class GeneticPortfolio():
             symbols = list(p.keys())
             weights = np.array(list(p.values()))
 
-            portfolio_return = np.sum(self.__symbol_means[symbols] * weights) 
+            portfolio_return = np.sum(self._symbol_means[symbols] * weights) 
   
             portfolio_cov = self._cov_matrix.loc[symbols, symbols].values
             portfolio_variance = np.dot(weights.T, np.dot(portfolio_cov, weights))
@@ -180,6 +179,5 @@ class GeneticPortfolio():
         return generation[parents[0]], generation[parents[1]]
 
 
-    def run_ga_optimization(self):
+    def run_ga_optimization(self, n):
         pass
-
